@@ -1,0 +1,209 @@
+<doctype html>
+<html>
+  <head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
+    <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"></script>
+  </head>
+
+  <body>
+    <div class="container-fluid">
+      <h1>Onfleet webhooks</h1>
+      <div class="row">
+        <div class="form-group col-sm-12 col-md-12 col-lg-12">
+          <label for="onfleetApiKey">Onfleet API Key</label>
+          <input type="text" name="onfleetApiKey" id="onfleetApiKey" value=""/>
+        </div>
+      </div>
+      <!-- end api key -->
+
+      <div class="row">
+        <!-- Begin left column -->
+        <div class="col-md-6 col-sm-12 table-bordered">
+          <div class="row">
+            <div class="col-sm-12 col-md-12 col-lg-12">
+              <h3>Add webhook</h3>
+            </div>
+
+            <div class="form-group col-md-12 col-sm-12">
+              <div class="row form-group">
+                <div class="col-sm-12 col-md-12 col-lg-12">
+                  <!-- <label for="webhookURL">Callback url</label> -->
+                  <input type="text" name="webhookURL" id="webhookURL" placeholder="Callback URL" class="col-sm-12">
+                </div>
+
+              </div>
+              <div class="row">
+                <div class="col-sm-12 col-md-12 col-lg-12">
+                  <!-- <label for="triggerSelect">Webhook Trigger</label> -->
+                  <!-- <input type="text" name="triggerSelect" id="webHookTrigger" value=""> -->
+                  <select class="triggerSelect" id="triggerSelect" name="triggerSelect">
+                    <option value="0">0 - taskStarted</option>
+                    <option value="1">1 - taskEta</option>
+                    <option value="2">2 - taskArrival</option>
+                    <option value="3">3 - taskCompleted</option>
+                    <option value="4">4 - taskFailed</option>
+                    <option value="5">5 - workerDuty</option>
+                    <option value="6">6 - taskCreated</option>
+                    <option value="7">7 - taskUpdated</option>
+                    <option value="8">8 - taskDeleted</option>
+                  </select>
+
+                  <button type="button" name="addWebhook" class="btn btn-default" id="addWebhook">Add Webhook</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          <hr />
+          <div class="row">
+            <div class="col-md-12">
+              <div class="row col-md-12">
+                <div class="col-md-9 col-sm-9">
+                  <h3>Current webhooks</h3>
+                </div>
+                <div class="col-md-3 col-sm-3">
+                  <h3><button class="btn btn-default" onclick="getOnfleetHooks()">Refresh</button></h3>
+                </div>
+              </div>
+
+
+            </div>
+          </div>
+
+          <div class="col-md-12 col-sm-12" id="currentWebhooks">
+        </div>
+        <!-- End left column -->
+
+
+        </div>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+
+    // Globals
+    var onfleetApiKey = $("#onfleetApiKey").val();
+
+    $(function(){
+      $("#onfleetApiKey").on("blur", function(){
+        onfleetApiKey = $("#onfleetApiKey").val();
+
+        getOnfleetHooks();
+      });
+
+      $("#addWebhook").on("click", function() {
+        addWebHook();
+      })
+
+      // Fetch the hooks
+      // getOnfleetHooks()
+    });
+
+    function getOnfleetHooks() {
+      if (onfleetApiKey) {
+        $.ajax({
+          type: 'GET',
+          url: 'https://onfleet.com/api/v2/webhooks',
+          beforeSend: function (xhr) {
+            xhr.setRequestHeader ("Authorization", "Basic " + btoa(onfleetApiKey + ":" + ""));
+          },
+          success: function(data){
+            // console.log(data)
+            $('#currentWebhooks').empty();
+            var webhooks ="";
+            for (e in data) {
+              // console.log(data[e]);
+              webhooks += generateWebhookTemplate(data[e]);
+            }
+            // console.log($(webhooks));
+            var webhooksHtml = $(webhooks);
+
+            webhooksHtml.find(".delete-webhook").on("click", function(){
+              deleteWebHook(this.id);
+            })
+
+            //$('#currentWebhooks').html(webhooks);
+            $('#currentWebhooks').append(webhooksHtml);
+
+          }
+        })
+      }
+    }
+    function addWebHook() {
+
+      var returnUrl   = $("#webhookURL").val();
+      var hookTrigger = parseInt( $("#triggerSelect").val() );
+
+      console.log([returnUrl, hookTrigger]);
+
+      if(returnUrl && hookTrigger != NaN) {
+        $.ajax({
+          type:"POST",
+          url:"https://onfleet.com/api/v2/webhooks",
+          beforeSend: function (xhr) {
+            xhr.setRequestHeader ("Authorization", "Basic " + btoa(onfleetApiKey + ":" + ""));
+          },
+          data: JSON.stringify({
+            url:returnUrl,
+            trigger:hookTrigger
+          }),
+          success: function(data){
+            alert("added webhook");
+            getOnfleetHooks();
+          },
+          error: function(data) {
+            alert("failed to register webhook")
+          }
+        });
+      } else {
+        alert("Please enter a callback url and trigger");
+      }
+
+
+    }
+    function deleteWebHook(webHookId) {
+      console.log("delete webhook: "+webHookId);
+
+      $.ajax({
+        type: "DELETE",
+        url: "https://onfleet.com/api/v2/webhooks/"+webHookId,
+        beforeSend: function (xhr) {
+          xhr.setRequestHeader ("Authorization", "Basic " + btoa(onfleetApiKey + ":" + ""));
+        },
+        success: function(data) {
+          getOnfleetHooks();
+        },
+        error: function(data) {
+          console.log("Error occured");
+          console.log(data)
+        }
+      });
+    }
+
+    function generateWebhookTemplate(webhook) {
+      return hookTemplate = [
+        '<div class="row form-group">',
+          '<div class="col-md-9 col-sm-9">',
+            '<div class="row">',
+              '<div class="col-sm-12 col-md-12">id: '+webhook.id+"</div>",
+            '</div>',
+            '<div class="row">',
+              '<div class="col-sm-12 col-md-12">url:'+webhook.url+"</div>",
+            '</div>',
+            '<div class="row">',
+              '<div class="col-sm-12 col-md-12">trigger:'+webhook.trigger+"</div>",
+            '</div>',
+          '</div>',
+          '<div class="col-md-3 col-sm-3">',
+            '<button id="'+webhook.id+'" class="btn btn-default delete-webhook">Delete</button>',
+          '</div>',
+        '</div>',
+      ].join("");
+    }
+
+
+
+    </script>
+  </body>
+</html>
